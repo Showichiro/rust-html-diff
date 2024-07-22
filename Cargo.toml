@@ -1,5 +1,5 @@
 [package]
-name = "html-diff"
+name = "diff-to-html"
 version = "0.1.0"
 edition = "2021"
 description = "html diff to html"
