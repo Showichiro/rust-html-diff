@@ -2,6 +2,8 @@
 name = "html-diff"
 version = "0.1.0"
 edition = "2021"
+description = "html diff to html"
+license = "MIT"
 
 [dependencies]
 clap = { version = "4.5.9", features = ["derive"] }
