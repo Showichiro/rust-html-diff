@@ -1,6 +1,6 @@
 [package]
 name = "diff-to-html"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "html diff to html"
 license = "MIT"
@@ -14,3 +14,9 @@ serde = { version = "1.0.204", features = ["derive"] }
 serde_yaml = "0.9.34"
 similar = "2.5.0"
 tokio = { version = "1.38.1", features = ["full"] }
+
+[profile.release]
+opt-level = 'z'  # サイズ最適化
+lto = true       # Link Time Optimization
+codegen-units = 1
+panic = 'abort'  # パニック時のスタックトレース生成を無効化
