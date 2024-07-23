@@ -1,6 +1,7 @@
 use clap::Parser;
+use fetch::Fetcher;
 use futures::future::join_all;
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, sync::Arc};
 use yaml::UrlPair;
 pub mod args;
 pub mod fetch;
@@ -16,14 +17,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 出力ディレクトリが存在しない場合は作成
     std::fs::create_dir_all(&args.output_dir)?;
 
+    let fetcher = Arc::new(Fetcher::default());
+
     // 並列処理のためのタスクを作成
     let tasks: Vec<_> = url_pairs
         .into_iter()
         .map(|pair| {
-            tokio::spawn(async move {
-                let pair_name = pair.name.clone();
-                let html_content = run_test(&pair).await;
-                (pair_name, html_content)
+            tokio::spawn({
+                let fetcher_clone = Arc::clone(&fetcher);
+                async move {
+                    let pair_name = pair.name.clone();
+                    let html_content = run_test(fetcher_clone, &pair).await;
+                    (pair_name, html_content)
+                }
             })
         })
         .collect();
@@ -42,10 +48,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn run_test(pair: &UrlPair) -> String {
+async fn run_test(fetcher: Arc<Fetcher>, pair: &UrlPair) -> String {
     println!("Comparing: {}", pair.name);
-    let old_result = fetch::fetch_url_content(&pair.old_url, &pair.old_headers).await;
-    let new_result = fetch::fetch_url_content(&pair.new_url, &pair.new_headers).await;
+    let old_result = fetcher
+        .fetch_url_content(&pair.old_url, &pair.old_headers)
+        .await;
+    let new_result = fetcher
+        .fetch_url_content(&pair.new_url, &pair.new_headers)
+        .await;
     match (old_result, new_result) {
         (Ok(old_content), Ok(new_content)) => {
             html::generate_html_diff(old_content, new_content, &pair.name)
