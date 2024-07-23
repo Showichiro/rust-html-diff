@@ -1,6 +1,6 @@
-use std::{fs::File, io::Write};
-
 use clap::Parser;
+use futures::future::join_all;
+use std::{fs::File, io::Write};
 use yaml::UrlPair;
 pub mod args;
 pub mod fetch;
@@ -16,11 +16,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 出力ディレクトリが存在しない場合は作成
     std::fs::create_dir_all(&args.output_dir)?;
 
-    for pair in url_pairs {
-        let pair_name = pair.name.clone();
-        let html_content = run_test(&pair).await;
+    // 並列処理のためのタスクを作成
+    let tasks: Vec<_> = url_pairs
+        .into_iter()
+        .map(|pair| {
+            tokio::spawn(async move {
+                let pair_name = pair.name.clone();
+                let html_content = run_test(&pair).await;
+                (pair_name, html_content)
+            })
+        })
+        .collect();
 
-        // HTMLファイルに差分を保存
+    // すべてのタスクを実行し、結果を待つ
+    let results = join_all(tasks).await;
+
+    // 結果を処理し、ファイルに書き込む
+    for (pair_name, html_content) in results.into_iter().flatten() {
         let filename = format!("{}_diff.html", pair_name.replace(' ', "_"));
         let file_path = args.output_dir.join(filename);
         let mut file = File::create(file_path)?;
